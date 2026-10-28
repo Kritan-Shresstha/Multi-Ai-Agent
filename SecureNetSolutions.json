@@ -1,0 +1,931 @@
+{
+  "name": "SecureNetSolutions",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        208,
+        -128
+      ],
+      "id": "2fbc2a83-c757-40b6-9798-ac0e9236a752",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "xLqNNsB3gnQpNTEU",
+          "mode": "list",
+          "cachedResultName": "securenetsolutionscyber",
+          "cachedResultUrl": "/projects/0FjnhEMTrdiYhguR/datatables/xLqNNsB3gnQpNTEU"
+        },
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        512,
+        0
+      ],
+      "id": "d5ca9eb2-c4a1-48d3-800b-47129346c3a9",
+      "name": "Data From the Table"
+    },
+    {
+      "parameters": {
+        "operation": "toJson",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        848,
+        0
+      ],
+      "id": "dfab94b4-93ee-4bd0-80d1-32f00b19b92c",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "You are Agent 1: Alert Analyzer for SecureNet Solutions.\n\nYour job is to analyze the raw cybersecurity alert received from the system input.\n\nYou must identify:\n1. What happened\n2. The type of security event\n3. The affected user or asset\n4. What behavior appears unusual\n5. What evidence should be examined further\n\nCONSTRAINTS:\n- Do NOT determine the final severity.\n- Do NOT make unsupported assumptions.\n- Do NOT claim that an attack definitely occurred unless the supplied evidence proves it.\n- Do NOT perform or recommend destructive or security-sensitive actions.\n- Use ONLY the information supplied to you in the incoming payload.\n\nOUTPUT REQUIREMENTS:\nReturn a concise, structured analysis covering points 1 through 5."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1168,
+        0
+      ],
+      "id": "12f89204-b3ca-4842-92e0-b523ea187663",
+      "name": "Alert Analyzer Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "=define",
+        "text": "={{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "You are Agent 2: Evidence Analyst for SecureNet Solutions.\n\nYour responsibility is to investigate the evidence surrounding the security alert.\n\nAnalyze:\n\n- supporting logs\n- user context\n- department\n- role\n- access level\n- normal working hours\n- asset type\n- business importance\n- data sensitivity\n- normal behavior\n- possible legitimate business explanations\n- evidence gaps\n\nDetermine whether the supporting evidence:\n\n1. strengthens the original alert\n2. weakens the original alert\n3. provides a legitimate business explanation\n4. remains insufficient to determine what happened\n\nDo not make the final severity decision.\n\nDo not make unsupported conclusions.\n\nIf evidence is incomplete or conflicting, clearly state this.\n\nDo not perform or recommend destructive or security-sensitive actions.\n\nReturn a structured evidence assessment. "
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1904,
+        0
+      ],
+      "id": "259b143b-a9e5-4760-94e6-302874fce943",
+      "name": "Evidence Investigator Agent",
+      "notes": "=You are an Evidence Investigator.\n\nInvestigate the alert provided to you.\n\nIdentify:\n- supporting evidence\n- possible cause\n- related events or indicators\n- signs of a false positive\n- important findings\n\nDo not invent evidence.\nIf evidence is unavailable, clearly state that.\n\nAlert information:\n{{ $json.evidence_request }}"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "ROLE AND PURPOSE:\nYou are the Decision Manager Agent, the central orchestrator and lead analyst of a Multi-Agent Cybersecurity Alert Investigation System for SecureNet Solutions. Your responsibility is to analyze incoming simulated security alerts, apply business rules, evaluate risk severity, and produce a structured, actionable Investigation Recommendation Report for human security analysts.\n\nCORE DUTIES & WORKFLOW:\n1. Alert & Context Analysis:\n   - Extract all available alert details directly from the input payload (Alert ID, Timestamp, Alert Type, User/Asset, Risk Factors, and Action/Reasoning).\n   - Treat the risk factors, reasoning, and context embedded within the alert payload as the primary factual evidence for your investigation.\n\n2. Evidence & Risk Evaluation:\n   - Differentiate between benign anomalies (e.g., scheduled backup jobs, known on-call admin activity, minor typos) and true security risks (e.g., unauthorized sensitive/HR file access, large-volume downloads, unblocked threats).\n   - Assign a final Severity Rating based on strict guidelines:\n     * LOW: Routine anomalies with little/no harmful impact or clear business explanation (e.g., blocked suspicious files with no follow-up activity, scheduled backups, typo on login).\n     * MEDIUM: Suspicious activity requiring non-urgent analyst verification (e.g., failed logins followed by success from a new location, off-hours admin logins).\n     * HIGH: Strong evidence of unauthorized cross-department access, sensitive HR/Finance data exposure, or high business risk.\n     * CRITICAL: Major compromise, massive data exfiltration (e.g., 40+ sensitive file downloads in minutes), or immediate risk to core infrastructure.\n\n3. Governance & Business Rules:\n   - Follow company rules strictly:\n     * Failed logins with no success -> LOW.\n     * Failed logins followed by success from new IP/location -> MEDIUM/HIGH + Human Verification.\n     * Sensitive/HR files accessed by unauthorized or non-departmental users -> HIGH.\n     * Large volume downloads of sensitive files -> CRITICAL.\n   - All HIGH and CRITICAL cases MUST have \"Human Review Required : YES\".\n\nSAFETY & OPERATIONAL CONSTRAINTS:\n- ADVISORY ONLY: Generate reports and recommendations only.\n- NO AUTOMATED ACTIONS: Do not execute active controls (disabling accounts, blocking IPs, etc.).\n\nOUTPUT FORMAT REQUIREMENTS:\nFor EVERY alert provided in the input, you MUST generate an individual, fully populated INVESTIGATION RECORD using the exact format below. Do NOT write \"Not Provided\" or \"undefined\" if the details are present or inferable from the alert payload:\n\n----------------------------------------------------------------------\nINVESTIGATION RECORD\n----------------------------------------------------------------------\nAlert Reference       : [Alert ID | Timestamp | Alert Type / Risk Factors]\nTarget Entity         : [User / Asset Name | Role / Department | Access Level]\nAsset Sensitivity     : [Business Importance | Data Sensitivity]\nSupporting Logs Used  : [Log IDs or Telemetry Stream]\n\n1. FINDINGS SUMMARY\n   - Key Evidence     : [Concise factual summary of the alert evidence and risk factors]\n   - Business Context : [Operational context based on reasoning provided]\n\n2. RISK & SEVERITY ASSESSMENT\n   - Severity Level   : [LOW / MEDIUM / HIGH / CRITICAL]\n   - Risk Justification: [Reasoning based on data sensitivity, user authority, and intent]\n\n3. RECOMMENDED ACTIONS & ESCALATION\n   - System Recommendation : [Next steps for security analysts]\n   - Human Review Required : [YES / NO]\n   - Mandatory Reason      : [Reason for escalation, or \"N/A - Standard Monitoring\"]\n----------------------------------------------------------------------\n\nSeverity: [LOW / MEDIUM / HIGH / CRITICAL]"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        3072,
+        -320
+      ],
+      "id": "7617dd5d-2b3d-45dd-91c1-0c26a62346b8",
+      "name": "cybersecurity main agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}",
+        "options": {
+          "systemMessage": "You are the Risk Investigator Agent for SecureNet Solutions' Multi-Agent Cybersecurity System. Your sole responsibility is to analyze security alerts along with supporting evidence, user context, asset importance, and company policies to determine severity, risk levels, and human escalation requirements.\n\nCRITICAL POLICY & COMPLIANCE RULES:\n1. NEVER order or perform destructive or security-sensitive automated actions (e.g., disabling accounts, blocking IPs, resetting passwords, deleting files, modifying permissions). All actions must remain recommendations for human analysts.\n2. Follow Company Rules strictly:\n   - Failed logins with no successful access -> Low risk unless other suspicious evidence exists.\n   - Failed logins followed by successful access from unusual locations -> Requires account verification (Medium/High).\n   - Login from new device followed by normal activity -> Review context before escalating.\n   - Suspicious executable blocked by endpoint protection -> Check if additional activity occurred. If blocked and no further activity, assign Low/Medium.\n   - Sensitive/HR files accessed by unauthorized or non-HR users -> Requires High-priority investigation.\n   - Large volume of sensitive files downloaded/accessed -> High/Critical risk; requires security review.\n   - Suspicious email reported without interaction -> Low risk; log and check for broader delivery.\n   - Unusual network traffic with a known business explanation (e.g., scheduled backup) -> Low risk; record business explanation.\n   - Evidence incomplete, missing, or undefined -> Assign Medium severity by default, flag evidence as Incomplete, and request human review to investigate the telemetry gap.\n3. Severity Classification Guidelines:\n   - Low: Unusual activity with little/no evidence of harmful impact or valid business explanation.\n   - Medium: Suspicious activity present, or incomplete/undefined alert telemetry; non-urgent human review recommended.\n   - High: Strong evidence of unauthorized access, sensitive data exposure, or high business risk.\n   - Critical: Evidence of major compromise, widespread impact, or immediate risk to vital assets.\n4. Output must be a valid JSON array only containing all 12 alert objects ([...]). Do not wrap output in extra conversational text or markdown code blocks."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        2496,
+        0
+      ],
+      "id": "1e9b89d8-19ac-4606-a038-f3fc7b0462e8",
+      "name": "Risk Analyzer Agent"
+    },
+    {
+      "parameters": {
+        "sendTo": "kritan5925@gmail.com",
+        "subject": "=Security Summary: {{ $json.total_alerts }} Alerts Processed",
+        "emailType": "text",
+        "message": "={{ $json.combined_message }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        4512,
+        -448
+      ],
+      "id": "f054630d-fe59-4644-9c6c-6d45360e290c",
+      "name": "Send a message",
+      "webhookId": "0639adc7-9edd-4987-8fa9-ffa097c4348b",
+      "executeOnce": false,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "RQ3wMCDGtsWNiy3O",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gemma4:31b-cloud",
+        "options": {
+          "think": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        2960,
+        -64
+      ],
+      "id": "6d3767d6-9b6e-4b84-8f4c-9b8f57bb1dc0",
+      "name": "Ollama Chat Model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "WizvJiFTyPE3WseR",
+          "name": "Ollama account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gemma4:31b-cloud",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        208
+      ],
+      "id": "e454c684-eb70-49e2-9dca-463dbc8d1f3f",
+      "name": "Ollama Chat Model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "WizvJiFTyPE3WseR",
+          "name": "Ollama account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gemma4:31b-cloud",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        1872,
+        224
+      ],
+      "id": "362b4b53-bccb-45e1-a441-191ffcf98d89",
+      "name": "Ollama Chat Model2",
+      "credentials": {
+        "ollamaApi": {
+          "id": "WizvJiFTyPE3WseR",
+          "name": "Ollama account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "gemma4:31b-cloud",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOllama",
+      "typeVersion": 1,
+      "position": [
+        2464,
+        240
+      ],
+      "id": "de36ee74-98f9-4340-b5a5-6ad6e4873757",
+      "name": "Ollama Chat Model3",
+      "credentials": {
+        "ollamaApi": {
+          "id": "WizvJiFTyPE3WseR",
+          "name": "Ollama account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.is_high }}",
+                    "rightValue": true,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "f1959cf2-534b-4b94-8150-8e824287f808"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d67a8b32-209e-430e-81d7-7b4a9cf07049",
+                    "leftValue": "={{ $json.is_medium }}",
+                    "rightValue": "MEDIUM ",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "deffed3a-659a-4857-8459-0ad3855a5a54",
+                    "leftValue": "={{ $json.is_critical }}",
+                    "rightValue": "CRITICAL",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a0536d7d-90c9-4f93-8e57-a2e8253475af",
+                    "leftValue": "={{ $json.is_low }}",
+                    "rightValue": "LOW",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": 1
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        3568,
+        -352
+      ],
+      "id": "a603b8a1-aff6-4177-8279-c341811e729c",
+      "name": "Switch"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3968,
+        -448
+      ],
+      "id": "b74adf95-c762-4db9-8587-ddfa916a9db4",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1TobK-u21Le2A8Gfganw6LFzw2rgJfkZQluKGXvtufKg",
+          "mode": "list",
+          "cachedResultName": "Final Result",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TobK-u21Le2A8Gfganw6LFzw2rgJfkZQluKGXvtufKg/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1TobK-u21Le2A8Gfganw6LFzw2rgJfkZQluKGXvtufKg/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "Alert_id"
+          ],
+          "schema": [
+            {
+              "id": "alert_id",
+              "displayName": "alert_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "alert_type",
+              "displayName": "alert_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "user_asset",
+              "displayName": "user_asset",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "role_dept",
+              "displayName": "role_dept",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "access_level",
+              "displayName": "access_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "business_importance",
+              "displayName": "business_importance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "data_sensitivity",
+              "displayName": "data_sensitivity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "supporting_logs",
+              "displayName": "supporting_logs",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "key_evidence",
+              "displayName": "key_evidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "business_context",
+              "displayName": "business_context",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "severity",
+              "displayName": "severity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "risk_justification",
+              "displayName": "risk_justification",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "system_recommendation",
+              "displayName": "system_recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "human_review_required",
+              "displayName": "human_review_required",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mandatory_reason",
+              "displayName": "mandatory_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        4512,
+        -224
+      ],
+      "id": "1b45f3ab-8c92-46e8-b8ee-831494d92019",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "UtRZuaaXd9m7ebWO",
+          "name": "Google Sheets account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "daysInterval": 3,
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        208,
+        112
+      ],
+      "id": "592a982d-e7ba-44e3-a5d1-0cccfc5c42d4",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const alert = $json;\n\nreturn {\n  json: {\n    alert_data: JSON.stringify(alert, null, 2),\n\n    evidence_request: `\nInvestigate this alert and identify relevant evidence.\n\nAlert:\n${JSON.stringify(alert, null, 2)}\n\nAnalyze:\n1. Evidence supporting the alert\n2. Possible cause\n3. Related events or indicators\n4. Signs that it could be a false positive\n5. Important findings\n\nDo not invent evidence. If evidence is unavailable, clearly state that.\n`\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        0
+      ],
+      "id": "f1f5ad36-a19f-4f8e-9d6e-8e2bbeb6ccb0",
+      "name": "Code in Evidence Investigator"
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const json = item.json;\n  const agent1Analysis = json.alert_analysis || json.output || \"No analysis provided from Agent 1.\";\n  const agent2Evidence = json.evidence_assessment || json.output || \"No evidence provided from Agent 2.\";\n\n  return {\n    json: {\n      ...json,\n      risk_prompt: `You are the Risk Assessment Agent in a cybersecurity alert analysis system.\n\nYour job is to assess the risk of a security alert using the available alert information, classification, and investigation evidence.\n\n=== INPUT DATA FOR THIS ALERT ===\nALERT & AGENT 1 ANALYSIS:\n${agent1Analysis}\n\nAGENT 2 EVIDENCE ASSESSMENT:\n${agent2Evidence}\n\n=== EVALUATION CRITERIA ===\nEvaluate:\n1. Severity\n2. Likelihood of a real attack\n3. Potential impact\n4. Strength of evidence\n5. Affected asset or user\n6. Urgency of response\n\nAssign a risk level:\n- LOW: Minor or likely harmless activity with little evidence of compromise.\n- MEDIUM: Suspicious activity that requires investigation but has limited impact.\n- HIGH: Strong evidence of malicious activity or potentially serious compromise.\n- CRITICAL: Confirmed or highly likely serious attack involving major systems, sensitive data, or immediate danger.\n\n=== CONSTRAINTS ===\n- Do not invent information.\n- Base the risk assessment ONLY on the provided alert and evidence.\n\n=== OUTPUT FORMAT ===\nReturn:\n- Risk Level: [LOW / MEDIUM / HIGH / CRITICAL]\n- Risk Score: [0 to 100]\n- Likelihood: [Low / Medium / High]\n- Potential Impact: [Low / Medium / High / Critical]\n- Risk Factors: [Brief summary]\n- Recommended Action: [Action steps]\n- Reason for Risk Level: [Justification]`\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2272,
+        0
+      ],
+      "id": "d5f60ace-f10f-4910-8494-c18665ce6422",
+      "name": "Code for Risk Analyzer"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Get input text from the Decision Manager Agent\nconst inputItem = $input.first();\nlet rawOutput = inputItem.json.output || inputItem.json.text || inputItem.json.report_text || \"\";\n\n// Clean up Markdown code block wrappers if present (e.g. ```json ... ```)\nif (typeof rawOutput === 'string') {\n  rawOutput = rawOutput.replace(/```json/gi, '').replace(/```/g, '').trim();\n}\n\nlet alertsArray = [];\n\n// 2. Parse the output into a native JavaScript array\ntry {\n  if (typeof rawOutput === 'string') {\n    alertsArray = JSON.parse(rawOutput);\n  } else if (Array.isArray(rawOutput)) {\n    alertsArray = rawOutput;\n  }\n} catch (error) {\n  // Fallback if parsing fails\n  throw new Error(\"Decision Manager did not output valid JSON array: \" + error.message);\n}\n\n// 3. Map each alert into an isolated n8n item with routing flags\nreturn alertsArray.map(alert => {\n  const severity = (alert.severity || \"UNKNOWN\").toUpperCase();\n  const isHighOrCritical = (severity === \"HIGH\" || severity === \"CRITICAL\");\n\n  return {\n    json: {\n      alert_id: alert.alert_id || \"UNKNOWN\",\n      severity: severity,\n      is_high_or_critical: isHighOrCritical,\n      is_critical: severity === \"CRITICAL\",\n      is_high: severity === \"HIGH\",\n      is_medium: severity === \"MEDIUM\",\n      is_low: severity === \"LOW\",\n      target_entity: alert.target_entity || \"\",\n      asset_sensitivity: alert.asset_sensitivity || \"\",\n      summary: alert.summary || \"\",\n      recommendation: alert.recommendation || \"\",\n      report_text: `Alert ${alert.alert_id} [${severity}]: ${alert.summary}`\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2864,
+        -320
+      ],
+      "id": "c727732d-3a5d-4481-a6b4-39dac99af791",
+      "name": "Code in Main Agent"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  // 1. Get raw input or parsed object\n  let data = item.json;\n\n  // Handle case where agent output is wrapped inside a string\n  if (data.output && typeof data.output === 'string') {\n    try {\n      const cleaned = data.output.replace(/```json/gi, '').replace(/```/g, '').trim();\n      data = JSON.parse(cleaned);\n    } catch (e) {\n      // Retain item.json if string parsing fails\n    }\n  }\n\n  // Handle array wrapping if nested\n  if (Array.isArray(data)) {\n    data = data[0] || {};\n  }\n\n  // 2. Extract JSON fields directly with fallback mapping\n  const severity = (data.severity || data.risk_level || \"UNKNOWN\").toUpperCase();\n\n  return {\n    json: {\n      alert_id: data.alert_id || \"\",\n      timestamp: data.timestamp || \"Pending\",\n      alert_type: data.alert_type || data.risk_factors || \"\",\n      user_asset: data.target_entity || data.user_asset || \"\",\n      role_dept: data.role_dept || \"\",\n      access_level: data.access_level || \"\",\n      business_importance: data.asset_sensitivity || data.business_importance || \"\",\n      data_sensitivity: data.data_sensitivity || \"\",\n      supporting_logs: data.supporting_logs || \"\",\n      key_evidence: data.key_evidence || data.risk_factors || \"\",\n      business_context: data.business_context || data.reasoning || \"\",\n      severity: severity,\n      risk_justification: data.risk_justification || data.reasoning || \"\",\n      system_recommendation: data.system_recommendation || data.recommended_action || \"\",\n      human_review_required: data.human_review_required !== undefined ? String(data.human_review_required) : \"\",\n      mandatory_reason: data.mandatory_reason || data.reasoning || \"\"\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4192,
+        -224
+      ],
+      "id": "30abe96a-45c7-45a4-ac51-3b6da30fe05a",
+      "name": "Code for Google Docs"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\n// Combine all individual report texts into a single string\nconst aggregatedReports = items.map((item, index) => {\n  const data = item.json;\n  \n  // Use report_text if available, or build individual record text\n  if (data.report_text) {\n    return `=== ALERT ${index + 1} OF ${items.length} ===\\n${data.report_text}`;\n  }\n\n  return `=== ALERT ${index + 1} OF ${items.length} ===\nAlert ID          : ${data.alert_id || 'N/A'}\nSeverity          : ${data.severity || 'N/A'}\nAlert Type        : ${data.alert_type || 'N/A'}\nTarget Entity     : ${data.user_asset || 'N/A'}\nKey Evidence      : ${data.key_evidence || 'N/A'}\nRecommendation    : ${data.system_recommendation || 'N/A'}`;\n}).join('\\n\\n======================================================================\\n\\n');\n\n// Return as a single n8n item\nreturn [{\n  json: {\n    total_alerts: items.length,\n    combined_message: aggregatedReports\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4192,
+        -448
+      ],
+      "id": "4a97eac3-5c4d-430c-95a9-3c184fa6fef5",
+      "name": "Code for Gmail"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect raw text across ALL incoming items (handles single or multi-item inputs)\nlet fullRawText = \"\";\n\nfor (const item of $input.all()) {\n  const text = item.json.output || item.json.text || item.json.report_text || item.json.message || \"\";\n  if (typeof text === 'string') {\n    fullRawText += text + \"\\n\\n\";\n  } else if (typeof text === 'object') {\n    fullRawText += JSON.stringify(text) + \"\\n\\n\";\n  }\n}\n\nconst parsedAlerts = [];\nconst processedIds = new Set();\n\n// Helper function to extract regex matches safely\nconst extractField = (block, pattern) => {\n  const match = block.match(pattern);\n  return match ? match[1].trim() : \"\";\n};\n\n// 1. Regex to target every individual INVESTIGATION RECORD block\nconst recordRegex = /INVESTIGATION RECORD[\\s\\S]*?(?=(?:INVESTIGATION RECORD|Severity:\\s*(?:CRITICAL|HIGH|MEDIUM|LOW)|$))/gi;\nconst blocks = fullRawText.match(recordRegex) || [];\n\nfor (const block of blocks) {\n  const alertRef = extractField(block, /Alert Reference\\s*:\\s*\\[?([^\\]\\n]+)\\]?/i);\n  const idMatch = alertRef.match(/(A\\d+)/i) || block.match(/\\b(A0*\\d+)\\b/i);\n\n  if (idMatch && idMatch[1]) {\n    const alertId = idMatch[1].toUpperCase();\n\n    if (!processedIds.has(alertId)) {\n      processedIds.add(alertId);\n\n      // Parse piped headers\n      const refParts = alertRef.split('|').map(s => s.trim());\n      const timestamp = refParts[1] || \"\";\n      const alertType = refParts[2] || \"\";\n\n      const targetEntity = extractField(block, /Target Entity\\s*:\\s*\\[?([^\\]\\n]+)\\]?/i);\n      const targetParts = targetEntity.split('|').map(s => s.trim());\n      const userAsset = targetParts[0] || \"\";\n      const roleDept = targetParts[1] || \"\";\n      const accessLevel = targetParts[2] || \"\";\n\n      const assetSens = extractField(block, /Asset Sensitivity\\s*:\\s*\\[?([^\\]\\n]+)\\]?/i);\n      const sensParts = assetSens.split('|').map(s => s.trim());\n      const businessImportance = sensParts[0] || \"\";\n      const dataSensitivity = sensParts[1] || \"\";\n\n      // Parse standard investigation fields\n      const supportingLogs = extractField(block, /Supporting Logs Used\\s*:\\s*\\[?([^\\]\\n]+)\\]?/i);\n      const keyEvidence = extractField(block, /Key Evidence\\s*:\\s*\\[?([^\\]\\n]+)\\]?/i);\n      const businessContext = extractField(block, /Business Context\\s*:\\s*\\[?([^\\]\\n]+)\\]?/i);\n      const riskJustification = extractField(block, /Risk Justification\\s*:\\s*\\[?([^\\]\\n]+)\\]?/i);\n      const systemRecommendation = extractField(block, /System Recommendation\\s*:\\s*\\[?([^\\]\\n]+)\\]?/i);\n      const humanReviewRequired = extractField(block, /Human Review Required\\s*:\\s*\\[?([^\\]\\n]+)\\]?/i);\n      const mandatoryReason = extractField(block, /Mandatory Reason\\s*:\\s*\\[?([^\\]\\n]+)\\]?/i);\n\n      // Parse severity\n      const severityMatch = block.match(/Severity Level\\s*:\\s*(CRITICAL|HIGH|MEDIUM|LOW)/i) || \n                            block.match(/Severity\\s*:\\s*(CRITICAL|HIGH|MEDIUM|LOW)/i);\n      const severity = severityMatch ? severityMatch[1].toUpperCase() : \"MEDIUM\";\n      const isHighOrCritical = (severity === \"HIGH\" || severity === \"CRITICAL\");\n\n      parsedAlerts.push({\n        json: {\n          alert_id: alertId,\n          timestamp: timestamp,\n          alert_type: alertType,\n          user_asset: userAsset,\n          role_dept: roleDept,\n          access_level: accessLevel,\n          business_importance: businessImportance,\n          data_sensitivity: dataSensitivity,\n          supporting_logs: supportingLogs,\n          key_evidence: keyEvidence,\n          business_context: businessContext,\n          severity: severity,\n          risk_justification: riskJustification,\n          system_recommendation: systemRecommendation,\n          human_review_required: humanReviewRequired,\n          mandatory_reason: mandatoryReason,\n          is_high_or_critical: isHighOrCritical,\n          is_critical: severity === \"CRITICAL\",\n          is_high: severity === \"HIGH\",\n          is_medium: severity === \"MEDIUM\",\n          is_low: severity === \"LOW\",\n          report_text: block.trim()\n        }\n      });\n    }\n  }\n}\n\n// 2. Safety Net: Ensure all 12 IDs (A001 through A012) exist as individual n8n items\nconst expectedIds = [\"A001\", \"A002\", \"A003\", \"A004\", \"A005\", \"A006\", \"A007\", \"A008\", \"A009\", \"A010\", \"A011\", \"A012\"];\n\nfor (const id of expectedIds) {\n  if (!processedIds.has(id)) {\n    const snippetRegex = new RegExp(`(?:.*${id}.*){1,4}`, 'gi');\n    const snippetMatch = fullRawText.match(snippetRegex);\n    const reportText = snippetMatch ? snippetMatch.join('\\n') : `Alert ${id}: Log details missing or undefined in report payload.`;\n\n    const localSevMatch = reportText.match(/(CRITICAL|HIGH|MEDIUM|LOW)/i);\n    const severity = localSevMatch ? localSevMatch[1].toUpperCase() : \"MEDIUM\";\n    const isHighOrCritical = (severity === \"HIGH\" || severity === \"CRITICAL\");\n\n    parsedAlerts.push({\n      json: {\n        alert_id: id,\n        timestamp: \"N/A\",\n        alert_type: \"Unknown\",\n        user_asset: \"Unknown\",\n        role_dept: \"Unknown\",\n        access_level: \"Unknown\",\n        business_importance: \"Unknown\",\n        data_sensitivity: \"Unknown\",\n        supporting_logs: \"None provided\",\n        key_evidence: \"No details extracted.\",\n        business_context: \"Incomplete log payload.\",\n        severity: severity,\n        risk_justification: \"Incomplete alert data.\",\n        system_recommendation: \"Investigate log pipeline for missing data.\",\n        human_review_required: \"YES\",\n        mandatory_reason: \"Missing telemetry.\",\n        is_high_or_critical: isHighOrCritical,\n        is_critical: severity === \"CRITICAL\",\n        is_high: severity === \"HIGH\",\n        is_medium: severity === \"MEDIUM\",\n        is_low: severity === \"LOW\",\n        report_text: reportText.trim()\n      }\n    });\n  }\n}\n\n// Sort items cleanly from A001 to A012\nparsedAlerts.sort((a, b) => a.json.alert_id.localeCompare(b.json.alert_id, undefined, { numeric: true }));\n\nreturn parsedAlerts;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3392,
+        -320
+      ],
+      "id": "15dd13ef-d348-46b7-8b66-a85b1295fc13",
+      "name": "Code to Send data to receiver"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3968,
+        -224
+      ],
+      "id": "04e2fe1f-7f0f-42ec-94eb-f7876c0e4bec",
+      "name": "Merge1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Data From the Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Data From the Table": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Alert Analyzer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Alert Analyzer Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in Evidence Investigator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evidence Investigator Agent": {
+      "main": [
+        [
+          {
+            "node": "Code for Risk Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Analyzer Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in Main Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cybersecurity main agent": {
+      "main": [
+        [
+          {
+            "node": "Code to Send data to receiver",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "cybersecurity main agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Alert Analyzer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Evidence Investigator Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ollama Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Risk Analyzer Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code for Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Data From the Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Evidence Investigator": {
+      "main": [
+        [
+          {
+            "node": "Evidence Investigator Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code for Risk Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Risk Analyzer Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in Main Agent": {
+      "main": [
+        [
+          {
+            "node": "cybersecurity main agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code for Google Docs": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code for Gmail": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code to Send data to receiver": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Code for Google Docs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c84b1e2f-140c-4aa3-9853-093de59a430c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f4aa83fca7e5c7b23c22e2c7f6da0b19acc07916ca1b7ea149a1b4300e71b974"
+  },
+  "nodeGroups": [],
+  "id": "k3GDssj3ogJaZJpU",
+  "tags": []
+}
